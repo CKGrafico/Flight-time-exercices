@@ -1,0 +1,15 @@
+.canvas {
+  background: #eeeeee;
+  left: 20px;
+  position: absolute;
+  top: 20px;
+}
+
+.snake-part {
+  color: #fff;
+  text-align: center;
+  font-size: 10px;
+  border-radius: 2px;
+  background-color: #2b2b2b;
+  position: absolute;
+}
