@@ -33,44 +33,80 @@
     });
   }
 
+  function applesElementFactory($canvas, apples) {
+    apples.forEach((apple, i) => {
+      $apple = document.createElement("div");
+      $apple.classList.add("apple");
+      $apple.innerHTML = `${i}`;
+      apple.id = i;
+      addStyle(
+        $apple,
+        "transform",
+        `translate(${px(apple.left)}, ${px(apple.top)})`
+      );
+      addStyle($apple, "width", px(APPLE_SIZE));
+      addStyle($apple, "height", px(APPLE_SIZE));
+      $canvas.append($apple);
+    });
+  }
+
+  function getRandom(partSize, min, max) {
+    const grid = [...(new Array(max).keys())].filter(x => x % partSize === 0 && x > min);
+    const position = Math.floor(Math.random() * grid.length);
+    return grid[position];
+  }
+
+  function appleFactory(partSize, maxTop, maxLeft) {
+    return {
+      born: performance.now(),
+      top: getRandom(partSize, 0, maxTop),
+      left: getRandom(partSize, 0, maxLeft)
+    };
+  }
+
   /* Variables */
   const $canvas = document.querySelector(".canvas");
   const CANVAS_SIZE = 400;
   const PART_SIZE = 15;
+  const APPLE_SIZE = 5;
   const MOVE_SIZE = PART_SIZE + 2;
-  const MAX_TIME = 100;
   const UP = -1;
   const RIGHT = 1;
   const DOWN = 1;
   const LEFT = -1;
   const STOP = 0;
+  const DEFAULT_TIME = 100;
+  const PAUSE_TIME= 10000000000;
+  const APPLE_TIME = 7000;
 
-  let snake = [snakePartFactory({left: CANVAS_SIZE / 2, top: CANVAS_SIZE / 2})];
+  let MAX_TIME = DEFAULT_TIME;
+  let snake = [];
+  let apples = [];
   let nextX = RIGHT;
   let nextY = 0;
   let startTime = null;
+  let appleTime = null;
 
   /* Game */
   function init() {
-    startTime = performance.now();
     addStyle($canvas, "width", px(CANVAS_SIZE));
     addStyle($canvas, "height", px(CANVAS_SIZE));
+
     bindEvents();
 
-    setTimeout(() => addNewPart(), 500);
-    setTimeout(() => addNewPart(), 500);
-    setTimeout(() => addNewPart(), 500);
-    setTimeout(() => addNewPart(), 500);
-    setTimeout(() => addNewPart(), 500);
-    setTimeout(() => addNewPart(), 500);
-    setTimeout(() => addNewPart(), 500);
-    setTimeout(() => addNewPart(), 500);
-    setTimeout(() => addNewPart(), 500);
-    setTimeout(() => addNewPart(), 500);
-    setTimeout(() => addNewPart(), 500);
-    setTimeout(() => addNewPart(), 500);
-
+    reload();
     requestAnimationFrame(gameLoop);
+  }
+
+  function reload() {
+    clean();
+    snake = [snakePartFactory({left: getRandom(PART_SIZE, 0, CANVAS_SIZE), top: getRandom(PART_SIZE, 0, CANVAS_SIZE)})];
+    apples = [];
+    nextX = RIGHT;
+    nextY = 0;
+    startTime = performance.now();
+    appleTime = performance.now();
+    MAX_TIME = DEFAULT_TIME;
   }
 
   function bindEvents() {
@@ -94,6 +130,14 @@
       if (e.keyCode === 40 && nextX !== 0) {
         nextY = DOWN;
         nextX = STOP;
+      }
+
+      if (e.keyCode === 80) {
+        if (MAX_TIME === DEFAULT_TIME) {
+          pause();
+        } else {
+          play();
+        }
       }
     });
   }
@@ -144,7 +188,7 @@
 
   function checkSnakeCanvasBordersOnUpdate() {
     const firstPart = snake[0];
-    const MIN_BORDER =  MOVE_SIZE;
+    const MIN_BORDER = MOVE_SIZE;
     const MAX_BORDER = CANVAS_SIZE - MIN_BORDER;
 
     if (firstPart.top >= MAX_BORDER) {
@@ -166,9 +210,44 @@
 
   function checkSnakeCollisionWithSnake() {
     const firstPart = snake[0];
-    snake.forEach((part, i) => {
-        
+    const isEaten = snake.slice(1).some((part) => firstPart.left === part.left && firstPart.top === part.top);
+
+    if (isEaten) {
+      gameOver();
+    }
+  }
+
+  function checkSnakeCollisionWithApple() {
+    const firstPart = snake[0];
+    const currentApple = apples.slice(1).find(apple => {
+      if ((apple.left <= firstPart.left + PART_SIZE && apple.left + APPLE_SIZE >= firstPart.left) &&(apple.top + APPLE_SIZE <= firstPart.top + PART_SIZE && apple.top >= firstPart.top)) {
+        return true;
+      }
     });
+
+    if (currentApple) {
+      destroyApple(currentApple);
+      addNewPart();
+    }
+  }
+
+  function destroyApple(apple) {
+    apples = apples.filter(x => x.id !== apple.id);
+  }
+
+  function checkApplesTimeAndAddRandom() {
+    const currentTime = performance.now();
+
+    apples.forEach(apple => {
+      if (currentTime - apple.born > APPLE_TIME) {
+        destroyApple(apple);
+      }
+    });
+
+    if (currentTime - appleTime >= APPLE_TIME) {
+      appleTime = currentTime;
+      apples.push(appleFactory(PART_SIZE, CANVAS_SIZE, CANVAS_SIZE));
+    }
   }
 
   function clean() {
@@ -179,10 +258,26 @@
     setNextSnakePartsPositionOnUpdate();
     checkSnakeCanvasBordersOnUpdate();
     checkSnakeCollisionWithSnake();
+    checkSnakeCollisionWithApple();
+    checkApplesTimeAndAddRandom();
   }
 
   function draw() {
     snakeElementFactory($canvas, snake);
+    applesElementFactory($canvas, apples);
+  }
+
+  function pause() {
+    MAX_TIME = PAUSE_TIME;
+  }
+
+  function play() {
+    MAX_TIME = DEFAULT_TIME;
+  }
+
+  function gameOver() {
+    pause();
+    reload();
   }
 
   init();
